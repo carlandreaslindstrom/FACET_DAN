@@ -134,8 +134,14 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
                fprintf([num2str(progress) '%% ']);
             end
             
+            
             % read image
             image = imread([preheader structs{i}.dat{indices{i}(shot)}]);
+            
+            % rotate if CMOS_FAR
+            if strcmp(cameras{i},'CMOS_FAR')
+                image = image';
+            end
             
             % subtract backgrounds
             if subBg(i) 

@@ -102,6 +102,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
     % display images shot for shot
     disp('Press Enter for next shot. Type "s", then Enter to mark shot.');
     for shot = shots
+    clf;
 
         % cycle through cameras
         for i = 1:N
@@ -141,7 +142,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
             
             % show custom function
             if strcmp(cameras{i},'E224_Vert')
-                 [amplitude, width, brightness] = oscAmp(processedImage, 250:650,200:1100)
+                 %[amplitude, width, brightness] = oscAmp(processedImage, 250:650,200:1100)
             end
         end
         
