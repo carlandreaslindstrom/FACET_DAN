@@ -191,10 +191,12 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
         % temporary function values
         f = imageFunctions{i};
         testImage = imread([preheader structs{i}.dat{indices{i}(1)}]);
+        
         % rotate if CMOS_FAR
         if strcmp(cameras{i},'CMOS_FAR')
             testImage = rot90(testImage,3);
         end
+        
         lineSize = numel(f(testImage));
         lines = zeros(lineSize, nshots);
         for j = 1:nshots

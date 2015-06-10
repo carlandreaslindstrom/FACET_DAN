@@ -103,12 +103,12 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
         for i = 1:Ncam
             bg = load([preheader structs{i}.background_dat{1}]);
             multiplier = 2;
-            if strcmpi(cameras{i}, 'IP2A')
+            if strcmpi(cameras{i}, 'IP2A') || strcmp(cameras{i},'CMOS_FAR')
                 bg.img = fliplr(bg.img);
                 subBg(i) = true;
-            elseif numel(strfind(cameras{i}, 'CMOS'))
+            elseif numel(strfind(cameras{i}, 'CMOS')) % subtract if CMOS
                 subBg(i) = true; 
-            end;
+            end
             background(i) = { multiplier * bg.img };
         end
     end
