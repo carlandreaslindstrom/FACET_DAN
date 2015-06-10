@@ -1,6 +1,5 @@
 function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths, shots, isScan, doAvg, cutoffs )
 
-% test
     % TODO: fix problem with repeated lines in waterfall
     % happens here: multiCameraWaterfall(18226, {'CMOS_WLAN','CMOS_FAR'}, {@(x)sum(x(125:390,65:135),2), @(x)sum(x(825:1390,290:390),2)}, {3.5e6,1e6}, 1:20:1e3, true, false,{{'PYRO'}})
     
