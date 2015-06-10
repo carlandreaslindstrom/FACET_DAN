@@ -39,8 +39,8 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
     if exist('combineFunctions','var')
         Ncfun = numel(combineFunctions); 
     end;
-
-    % intersect UIDs
+    
+    % numbers and declarations
     Ncam = numel(cameras);
     Nscal = numel(scalars);
     N = Ncam + Nscal;
@@ -48,6 +48,18 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
     structs = cell(N,1);
     indices = cell(N,1);
     labels = cell(N,1);
+    
+    % parse scalar names and cutoffs
+    cutoffs = cell(Nscal,1);
+    for i = 1:numel(scalars)
+        if iscell(scalars{i})
+            name = scalars{i}{1};
+            cutoffs(i) = scalars{i}(2);
+            scalars(i) = { name };
+        end
+    end
+
+    % intersect UIDs
     for i = 1:N
         if i <= Ncam
 	        struct = data.raw.images.(cameras{i});
@@ -92,8 +104,18 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             shots = shots:nUIDs; 
         end;
         shots = shots(and(shots > 0, shots <= nUIDs));
-    else shots = 1:nUIDs; 
+    else
+        shots = 1:nUIDs;
     end;
+    
+    
+    % do shot cutoff filtering
+    for i = 1:Nscal
+        if numel(cutoffs{i})
+            values = structs{Ncam+i}.dat(indices{i}(shots));
+            shots = shots(and(values < max(cutoffs{i}), values > min(cutoffs{i})));
+        end
+    end
     nshots = numel(shots);
 
     % find backgrounds if saved
