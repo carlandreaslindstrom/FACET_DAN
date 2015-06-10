@@ -1,15 +1,18 @@
 function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths, shots, isScan, doAvg, cutoffs )
 
-    % TODO: fix problem with repeated lines in waterfall
-    % happens here: multiCameraWaterfall(18226, {'CMOS_WLAN','CMOS_FAR'}, {@(x)sum(x(125:390,65:135),2), @(x)sum(x(825:1390,290:390),2)}, {3.5e6,1e6}, 1:20:1e3, true, false,{{'PYRO'}})
+    % ROI input: {bitdepth,bitdepth}  e.g. {0, 1e4} 
+    %            or {{bitdepth,yroi}, {bitdepth,yroi}}  e.g. {{0,1:100}, {1e4,10:150}}
+    %            or {{bitdepth,yroi,xroi}, {bitdepth,yroi,xroi}}  e.g. {{0,1:100,300:400}, {1e4,10:150,200:500}}
+    %            or {{bitdepth,yroi,xroi}, bitdepth}  e.g. {{0,1:100,300:400}, 1e4}
+
     
+    % import 2D to 1D projection functions
     addpath('2Dto1D');
 
     % white plot background
     set(gcf, 'Color', 'w');
     
-    % colormaps
-    % "white -> blue -> green -> yellow -> red"
+    % colormaps:  "white -> blue -> green -> yellow -> red"
     D = [1 1 1; 0 0 1; 0 1 0; 1 1 0; 1 0 0;];
     F = [0 0.25 0.5 0.75 1];
     G = linspace(0, 1, 256);
@@ -29,6 +32,7 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
     fprintf('Importing data... ');
     [data, preheader, dataset] = FACETautoImport(dataset);
     
+    % record whether to cut variable
     Ncam = numel(cameras);
     Ncuts = 0;
     if exist('cutoffs','var')
@@ -70,7 +74,7 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
 	    structs(i) = { struct };
         labels(i) = { label };
         
-	    if i == 1
+        if i == 1
             UIDs = struct.UID;
         end
         UIDs = intersect(UIDs, struct.UID);
@@ -90,7 +94,7 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
         end
         shots = shots(and(shots > 0, shots <= nUIDs));
     else
-        shots = 1: nUIDs;
+        shots = 1:nUIDs;
     end
     nshots = numel(shots);
     
@@ -164,9 +168,14 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
     subBg = zeros(Ncam,1);
     if data.raw.metadata.param.save_back
         for i = 1:Ncam
-            subBg(i) = ( numel(strfind(cameras{i}, 'CMOS')) > 0 );
             bg = load([preheader structs{i}.background_dat{1}]);
             multiplier = 2;
+            if strcmpi(cameras{i}, 'IP2A') || strcmp(cameras{i},'CMOS_FAR')
+                bg.img = fliplr(bg.img);
+                subBg(i) = true;
+            elseif numel(strfind(cameras{i}, 'CMOS')) % subtract if CMOS
+                subBg(i) = true;
+            end
             background(i) = { multiplier * bg.img };
         end
     end

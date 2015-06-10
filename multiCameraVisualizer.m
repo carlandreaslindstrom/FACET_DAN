@@ -54,8 +54,8 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
             if strcmpi(cameras{i}, 'IP2A') || strcmp(cameras{i},'CMOS_FAR')
                 bg.img = fliplr(bg.img);
                 subBg(i) = true;
-            elseif numel(strfind(cameras{i}, 'CMOS')) > 0
-                subBg(i) = false;
+            elseif numel(strfind(cameras{i}, 'CMOS')) % subtract if CMOS
+                subBg(i) = true;
             end
             background(i) = { multiplier * bg.img };            
         end
