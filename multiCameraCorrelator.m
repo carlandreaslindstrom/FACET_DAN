@@ -117,7 +117,7 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
                 subBg(i) = true;
             elseif numel(strfind(cameras{i}, 'CMOS')) > 0
                 subBg(i) = true;
-	    end
+            end
             background(i) = { multiplier * bg.img };
         end
     end
@@ -147,9 +147,11 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             % read image
             image = imread([preheader structs{i}.dat{indices{i}(shot)}]);
             
-
-            % read image
-            image = imread([preheader structs{i}.dat{indices{i}(shot)}]);
+            % rotate if CMOS_FAR
+            if strcmp(cameras{i},'CMOS_FAR')
+                image = image';
+            end
+         
             
             % subtract backgrounds
             if subBg(i)
