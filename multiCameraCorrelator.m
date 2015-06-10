@@ -97,22 +97,11 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
     nshots = numel(shots);
 
     % find backgrounds if saved
-    background = cell(Ncam,1);
-    subBg = zeros(Ncam,1);
-    if data.raw.metadata.param.save_back
-        for i = 1:Ncam
-            bg = load([preheader structs{i}.background_dat{1}]);
-            multiplier = 2;
-            if strcmpi(cameras{i}, 'IP2A') || strcmp(cameras{i},'CMOS_FAR')
-                bg.img = fliplr(bg.img);
-                subBg(i) = true;
-            elseif numel(strfind(cameras{i}, 'CMOS')) % subtract if CMOS
-                subBg(i) = true; 
-            end
-            background(i) = { multiplier * bg.img };
-        end
-    end
+    background = backgroundSubtraction(data.raw.metadata.param.save_back, structs, preheader, cameras);
 
+    % clear figure to avoid subplot shrinking
+    clf;
+    
     % cycle through all cameras
     fprintf(['Analyzing ' num2str(Ncam*nshots) ' images... ']);
     funcValues = cell(Nall, 1);
@@ -134,24 +123,12 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
                fprintf([num2str(progress) '%% ']);
             end
             
+            % aqcuire image
+            image = getProcessedImage(preheader, structs{i}, indices{i}, shot, background{i}, cameras{i});
             
-            % read image
-            image = imread([preheader structs{i}.dat{indices{i}(shot)}]);
-            
-            % rotate if CMOS_FAR
-            if strcmp(cameras{i},'CMOS_FAR')
-                image = image';
-            end
-            
-            % subtract backgrounds
-            if subBg(i) 
-                processedImage = image - background{i};
-            else
-                processedImage = image;
-            end;
-            
+            % apply function and save
             f = imageFunctions{i};
-            values(j) = f(processedImage);
+            values(j) = f(image);
         end
         
         % save function values
@@ -228,10 +205,9 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             scatter(funcValues{j}(mask), funcValues{i}(mask), 30, corrcolor, 'filled');
 
             % add labels
-            set(gca,'FontSize', 11);
+            set(gca,'FontSize', 12);
             xlabel(labels{j}, 'Interpreter', 'None');
             ylabel(labels{i}, 'Interpreter', 'None');
-            set(gca,'FontSize', 9);
             
             % add dataset title once
             if count == 1

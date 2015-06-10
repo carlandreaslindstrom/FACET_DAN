@@ -164,26 +164,15 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
     end
 
     % find backgrounds if saved
-    background = cell(Ncam,1);
-    subBg = zeros(Ncam,1);
-    if data.raw.metadata.param.save_back
-        for i = 1:Ncam
-            bg = load([preheader structs{i}.background_dat{1}]);
-            multiplier = 2;
-            if strcmpi(cameras{i}, 'IP2A') || strcmp(cameras{i},'CMOS_FAR')
-                bg.img = fliplr(bg.img);
-                subBg(i) = true;
-            elseif numel(strfind(cameras{i}, 'CMOS')) % subtract if CMOS
-                subBg(i) = true;
-            end
-            background(i) = { multiplier * bg.img };
-        end
-    end
+    background = backgroundSubtraction(data.raw.metadata.param.save_back, structs, preheader, cameras);
+    
+    % clear figure to avoid subplot shrinking
+    clf;
     
     % cycle through cameras
     fprintf(['Analyzing ' num2str(Ncam*nshots) ' images... ']);
     progress = 0;
-    nPlots = Ncam +1;
+    nPlots = Ncam + 1;
     nHor = floor(sqrt(nPlots));
     nVert = ceil(nPlots/floor(sqrt(nPlots)));
     for i = 1:Ncam
@@ -210,35 +199,10 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
             end
             
             % read image
-            image = imread([preheader structs{i}.dat{indices{i}(shot)}]);
-
-            % rotate if CMOS_FAR
-            if strcmp(cameras{i},'CMOS_FAR')
-                image = rot90(image,3);
-            end
-            
-            % subtract background
-            if subBg(i)
-                processedImage = image - background{i};
-            else
-                processedImage = image;
-            end
-
-	        % fix orientations
-            if structs{i}.X_ORIENT(shot) == 1
-                processedImage = fliplr(processedImage);
-            end
-            if structs{i}.Y_ORIENT(shot) == 1
-                processedImage = flipud(processedImage);
-            end
-            
-            % special case flipping left-right on WLANEX
-            if strcmp(cameras{i},'CMOS_WLAN') || strcmp(cameras{i},'CMOS_FAR')
-                processedImage = fliplr(processedImage);
-            end
+            image = getProcessedImage(preheader, structs{i}, indices{i}, shot, background{i}, cameras{i});
             
 	        % do 2D to 1D projection
-            lines(:,j) = f(processedImage)';
+            lines(:,j) = f(image)';
             
         end
         
@@ -327,7 +291,7 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
                 yBendShift = (D0 - DBend)/resolution;
                 
                 y0 = yNominal - yStart - yBendShift;
-                yInf = y0 - DBend/resolution;
+                %yInf = y0 - DBend/resolution;
                 eAxis = p0 ./ (1-(y0-yROI)*resolution/DBend);
                 
                 numETicks = 10;

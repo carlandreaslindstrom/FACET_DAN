@@ -3,8 +3,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
     % white plot background
     set(gcf, 'Color', 'w');
     
-    % colormaps
-    % "white -> blue -> green -> yellow -> red"
+    % colormaps: "white -> blue -> green -> yellow -> red"
     D = [1 1 1; 0 0 1; 0 1 0; 1 1 0; 1 0 0;];
     F = [0 0.25 0.5 0.75 1];
     G = linspace(0, 1, 256);
@@ -14,7 +13,6 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
     % import data structure
     fprintf('Importing data... ');
     [data, preheader, dataset] = FACETautoImport(dataset);
-    
     
     % intersect UIDs
     N = numel(cameras);
@@ -45,21 +43,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
     end
 
     % find backgrounds if saved
-    background = cell(N,1);
-    subBg = zeros(N,1);
-    if data.raw.metadata.param.save_back 
-        for i = 1:N
-            bg = load([preheader structs{i}.background_dat{1}]);
-            multiplier = 2;
-            if strcmpi(cameras{i}, 'IP2A') || strcmp(cameras{i},'CMOS_FAR')
-                bg.img = fliplr(bg.img);
-                subBg(i) = true;
-            elseif numel(strfind(cameras{i}, 'CMOS')) % subtract if CMOS
-                subBg(i) = true;
-            end
-            background(i) = { multiplier * bg.img };            
-        end
-    end
+    background = backgroundSubtraction(data.raw.metadata.param.save_back, structs, preheader, cameras);
 
     % set bit depths and ROIs
     xROIs = cell(N,1);
@@ -73,7 +57,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
             bdroi = bitDepthAndROI{i};
             if strcmpi(class(bdroi),'double')
                 bitDepths(i) = { bdroi };
-            elseif strcmpi(class(bdroi),'cell') && numel(bdroi)
+            elseif iscell(bdroi) && numel(bdroi)
                 bitDepths(i) = { bdroi{1} };
                 if numel(bdroi) >= 2 && numel(bdroi{2})
                     yROIs(i) = { intersect(bdroi{2}, yROIs{i}) };
@@ -102,7 +86,9 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
     % display images shot for shot
     disp('Press Enter for next shot. Type "s", then Enter to mark shot.');
     for shot = shots
-    clf;
+        
+        % clear figure to avoid subplot shrinking
+        clf;
 
         % cycle through cameras
         for i = 1:N
@@ -111,31 +97,11 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
             UID = structs{i}.UID(indices{i}(shot));
             
 	        % read image
-            image = imread([preheader structs{i}.dat{indices{i}(shot)}]);
+            image = getProcessedImage(preheader, structs{i}, indices{i}, shot, background{i}, cameras{i});
             
-            % rotate if CMOS_FAR
-            if strcmp(cameras{i},'CMOS_FAR')
-                image = image';
-            end
-            
-            % subtract background
-	        if subBg(i)
-                processedImage = image - background{i};
-            else
-	    	    processedImage = image;
-            end            
-            
-            % fix orientations
-            if structs{i}.X_ORIENT(shot) == 1
-                processedImage = fliplr(processedImage);
-            end
-            if structs{i}.Y_ORIENT(shot) == 1
-                processedImage = flipud(processedImage);
-            end
-
             % plot image (tries to make square layout)
             subplot(ceil(N/floor(sqrt(N))),floor(sqrt(N)),i);
-            imagesc(xROIs{i}, yROIs{i}, processedImage(yROIs{i}, xROIs{i}));
+            imagesc(xROIs{i}, yROIs{i}, image(yROIs{i}, xROIs{i}));
             colorbar;
             caxis([0 bitDepths{i}]);
             title([ cameras{i} ' (' num2str(shot) '/' num2str(nShots) ', ' num2str(UID) ', dataset ' dataset ')'],'Interpreter','none');
