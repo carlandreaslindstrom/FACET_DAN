@@ -67,7 +67,8 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             fstr = strrep(fstr, 'sum(sum','Pixel count');
             fstr = strtrim(strrep(fstr,'@(x)',''));
             fstr = strtok(fstr,'(');
-            label = [fstr ' @ ' cameras{i}];
+            % EA: added index to separate ROIs for same camerea (unaffected vs deceleration for example)
+            label = [fstr ' @ ' cameras{i} ',' num2str(i)];
         else
             scalar = scalars{i-Ncam};
             label = scalar;
@@ -232,7 +233,7 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             
             % add dataset title once
             if count == 1
-                title(['\bfDataset ' dataset]);
+                title(['Dataset ' dataset],'fontweight','bold','fontsize',18);
             end
             
             % increment to next plot
