@@ -108,11 +108,10 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
         shots = 1:nUIDs;
     end;
     
-    
     % do shot cutoff filtering
     for i = 1:Nscal
         if numel(cutoffs{i})
-            values = structs{Ncam+i}.dat(indices{i}(shots));
+            values = structs{Ncam+i}.dat(indices{Ncam+i}(shots));
             shots = shots(and(values < max(cutoffs{i}), values > min(cutoffs{i})));
         end
     end
