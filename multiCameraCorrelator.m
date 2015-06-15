@@ -33,6 +33,38 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             scalars(i) = { name };
         end
     end
+<<<<<<< HEAD
+=======
+
+    % intersect UIDs
+    for i = 1:N
+        if i <= Ncam
+	        struct = data.raw.images.(cameras{i});
+            fstr = strtrim(func2str(imageFunctions{i}));
+            fstr = strrep(fstr, 'sum(sum','Pixel count');
+            fstr = strtrim(strrep(fstr,'@(x)',''));
+            fstr = strtok(fstr,'(');
+            % EA: added index to separate ROIs for same camerea (unaffected vs deceleration for example)
+            label = [fstr ' @ ' cameras{i} ',' num2str(i)];
+        else
+            scalar = scalars{i-Ncam};
+            label = scalar;
+            % translate to and from simpler words
+            for lookup = dictionary
+                scalar = strrep(scalar, lookup{1}{2}, lookup{1}{1});
+                label = strrep(label, lookup{1}{1}, lookup{1}{2});
+            end
+            struct = data.raw.scalars.(scalar);
+        end
+	    structs(i) = { struct };
+        labels(i) = { label };
+        
+        if i==1 
+            UIDs = struct.UID; 
+        end;
+        UIDs = intersect(UIDs, struct.UID);
+    end
+>>>>>>> origin/master
     
     % intersect UIDs
     if ~exist('specifiedUIDs', 'var') 
@@ -177,8 +209,7 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
 
             % add dataset title once
             if count == 1
-                set(gca,'FontSize', 13);
-                title(['\bf Dataset ' dataset]);
+                title(['Dataset ' dataset],'fontweight','bold','fontsize',18);
             end
             
             % add labels
