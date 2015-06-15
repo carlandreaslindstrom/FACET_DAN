@@ -1,5 +1,7 @@
 function [ data, preheader, dataset, filename ] = FACETautoImport( dataset, quiet )
-
+    
+    fprintf('Importing data... ');
+    
     % convert to string if number
     if strcmpi(class(dataset),'double') || strcmpi(class(dataset),'int')
         dataset = num2str(dataset);
@@ -27,7 +29,7 @@ function [ data, preheader, dataset, filename ] = FACETautoImport( dataset, quie
         end
         
         % save in buffer
-        if ~strcmpi(output,'')
+        if ~strcmpi(output,'') && ~numel(strfind(output,'find'))
             fid = fopen(bufferpath, 'a');
             fprintf(fid, [dataset ' ' output '\n']);        
             fclose(fid);
@@ -57,6 +59,7 @@ function [ data, preheader, dataset, filename ] = FACETautoImport( dataset, quie
             else
                 disp(['Not a scan']);
             end    
+            disp(['Beam rate: ' num2str(data.raw.metadata.E200_state.EVNT_SYS1_1_BEAMRATE.dat) ' Hz']);
             fprintf('Cameras saved : ');
             for name = data.raw.metadata.param.names'
                 fprintf([name{1} ', '], 'Interpreter', 'None');

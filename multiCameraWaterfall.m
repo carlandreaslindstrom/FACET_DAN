@@ -8,6 +8,7 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
     
     % import 2D to 1D projection functions
     addpath('2Dto1D');
+    addpath('2DtoNUM');
 
     % white plot background
     set(gcf, 'Color', 'w');
@@ -18,73 +19,13 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
     G = linspace(0, 1, 256);
     cmap.wbgyr = interp1(F,D,G);
     colormap(cmap.wbgyr);
-    
-    % scalar dictionary
-    dictionary = {{'GADC0_LI20_EX01_CALC_CH3_', 'DS TOROID'} ...
-                  {'GADC0_LI20_EX01_CALC_CH2_', 'US TOROID'} ...
-                  {'BLEN_LI20_3014_BRAW', 'PYRO'} ...
-                  {'PMTR_LA20_10_PWR','LASER POWER'}};
-    
-    % fail if wrong number of functions 
-    assert(numel(cameras) == numel(imageFunctions));
 
     % import data structure
-    fprintf('Importing data... ');
     [data, preheader, dataset] = FACETautoImport(dataset);
     
-    % record whether to cut variable
-    Ncam = numel(cameras);
-    Ncuts = 0;
-    if exist('cutoffs','var')
-        Ncuts = numel(cutoffs);
-        isCutCam = zeros(Ncuts,1);
-        for i = 1:Ncuts
-            isCutCam(i) = numel(cutoffs{i}) > 1 && strcmpi(class(cutoffs{i}{2}), 'function_handle');
-        end
-    end
-
-    % intersect UIDs
-    N = Ncam + Ncuts + isScan;
-    structs = cell(N,1);
-    indices = cell(N,1);
-    labels = cell(N,1);
-    for i = 1:N
-        if i <= Ncam
-	        struct = data.raw.images.(cameras{i});
-            label = [cameras{i} ' ' strtrim(func2str(imageFunctions{i}))];
-        elseif i > Ncam && i <= Ncam + Ncuts
-            j = i - Ncam;
-            if isCutCam(j)
-                struct = data.raw.images.(cutoffs{j}{1});
-                label = [cutoffs{j}{1} ' ' strtrim(func2str(cutoffs{j}{2}))];
-            else
-                scalar = cutoffs{j}{1};
-                label = scalar;
-                % translate to and from simpler words
-                for lookup = dictionary
-                    scalar = strrep(scalar, lookup{1}{2}, lookup{1}{1});
-                    label = strrep(label, lookup{1}{1}, lookup{1}{2});
-                end
-                struct = data.raw.scalars.(scalar);
-           end
-        elseif isScan
-            struct = data.raw.scalars.('step_value');
-            label = 'Scan variable';
-        end
-	    structs(i) = { struct };
-        labels(i) = { label };
-        
-        if i == 1
-            UIDs = struct.UID;
-        end
-        UIDs = intersect(UIDs, struct.UID);
-    end
-
-    % get indices
-    for i = 1:N
-        [~, ind] = intersect(structs{i}.UID, UIDs);
-        indices(i) = {ind};
-    end
+    if ~exist('specifiedUIDs', 'var') 
+        specifiedUIDs = []; end;
+    [ structs, UIDs, indices, Ncams, labels, N, ~, Ncuts, isCutCam ] = intersectUIDs(data, specifiedUIDs, cameras, imageFunctions, {}, cutoffs, isScan);
     
     % if 1 shot entered, start with this. if none, show all.
     nUIDs = numel(UIDs);
@@ -100,13 +41,21 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
     
     % do shot cutoff filtering
     cutValues = cell(Ncuts+isScan,1);
-    fprintf('Cutting/sorting images...');
+    fprintf(['Cutting/sorting ' num2str(sum(isCutCam)*nshots) ' images...']);
     progress = 0;
     shotsUncut = shots;
     for i = 1:Ncuts
-        if isCutCam(i) % by camera function
+        if isCutCam(i) % cut by camera function
             imgCutVals = zeros(nshots,1);
             imgFunction = cutoffs{i}{2};
+            
+            % make background for cut images
+            cutStructs = structs( (Ncams+1):(Ncams+Ncuts));
+            cutCam = cutoffs{i}(1);
+            background = backgroundSubtraction(data.raw.metadata.param.save_back, cutStructs, preheader, cutCam);
+            cutbg = background{1};
+            
+            % cycle through shots
             for j = 1:nshots
                 % show progress (because people are impatient)
                 current = floor((nshots*(sum(isCutCam(1:i))-1) + j)/(nshots*sum(isCutCam))*100);
@@ -115,15 +64,19 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
                     fprintf([num2str(progress) '%% ']);
                 end
                 
+                % read image and apply function
                 shot = shotsUncut(j);
-                image = imread([preheader structs{Ncam+i}.dat{indices{Ncam+i}(shot)}]);
+                image = getProcessedImage(preheader, structs{Ncams+i}, indices{Ncams+i}, shot, cutbg, cutCam);
                 imgCutVals(j) = imgFunction( image );
             end
+            
+            % save values
             cutValues(i) = { imgCutVals' };
-        else    % by scalar
-            cutValues(i) = { structs{Ncam+i}.dat(indices{Ncam+i}(shotsUncut)) };
+        else  % cut by scalar
+            cutValues(i) = { structs{Ncams+i}.dat(indices{Ncams+i}(shotsUncut)) };
         end
-        % allow no cuts for first cutoff (sorting)
+        
+        % do cuts: allow not cutting for first "cutoff" (sorting only)
         if i > 1 || numel(cutoffs{i}) > 1 + isCutCam(i)
             cutRange = cutoffs{i}{2+isCutCam(i)};
             shots = intersect(shots, shotsUncut(and(min(cutRange) <= cutValues{i}, cutValues{i} <= max(cutRange))));
@@ -170,29 +123,24 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
     clf;
     
     % cycle through cameras
-    fprintf(['Analyzing ' num2str(Ncam*nshots) ' images... ']);
+    fprintf(['Analyzing ' num2str(Ncams*nshots) ' images... ']);
     progress = 0;
-    nPlots = Ncam + 1;
+    nPlots = Ncams + 1;
     nHor = floor(sqrt(nPlots));
     nVert = ceil(nPlots/floor(sqrt(nPlots)));
-    for i = 1:Ncam
+    for i = 1:Ncams
         
         % temporary function values
         f = imageFunctions{i};
-        testImage = imread([preheader structs{i}.dat{indices{i}(1)}]);
-        
-        % rotate if CMOS_FAR
-        if strcmp(cameras{i},'CMOS_FAR')
-            testImage = rot90(testImage,3);
-        end
-        
+        testImage = getProcessedImage(preheader, structs{i}, indices{i}, shots(1), [], cameras{i});
         lineSize = numel(f(testImage));
         lines = zeros(lineSize, nshots);
+        
         for j = 1:nshots
             shot = shots(j);
             
             % show progress (because people are impatient)
-            current = floor((nshots*(i-1) + j)/(nshots*Ncam)*100);
+            current = floor((nshots*(i-1) + j)/(nshots*Ncams)*100);
             if current >= progress + 10
                progress = floor(current/10)*10;
                fprintf([num2str(progress) '%% ']);
@@ -318,7 +266,7 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
             stairs([sortedValues; sortedValues(end)]);
             xlim([1 numel(sortedValues)+1]);
             xlab = ['Step value' step_str];
-            ylabel(labels{Ncam+1},'Interpreter','None');
+            ylabel(labels{Ncams+1},'Interpreter','None');
             set(gca, 'XTick', xticks + 0.5);
             set(gca, 'XTickLabel', num2str(uniqueStepValues','%.2f'));
             for x = ticks + 1
@@ -333,14 +281,18 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
         if Ncuts > 0
             stairs([sortedValues sortedValues(end)]);
             xlim([1 numel(sortedValues)+1]);
-            ylabel(labels{Ncam+1},'Interpreter','None');
+            ylabel(labels{Ncams+1},'Interpreter','None');
         else
             stairs([shots shots(end)]);
             xlim([1 nshots+1]);
             ylabel('Shot # (all shots)');
         end
     end
-    title(['\bfDataset ' dataset ' \rm(' num2str(nshots) '/' num2str(nUIDs) ' shots)']);
+    
+    % title and x-label
+    set(gca,'FontSize', 13);
+    title(['\bf Dataset ' dataset ' \rm (' num2str(nshots) '/' num2str(nUIDs) ' shots)']);
+    set(gca,'FontSize', 12);
     xlabel(xlab, 'Interpreter', 'None');
     
     % invisible color bar for alignment

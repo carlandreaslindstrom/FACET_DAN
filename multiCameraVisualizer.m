@@ -11,45 +11,21 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
     colormap(cmap.wbgyr);
                                     
     % import data structure
-    fprintf('Importing data... ');
     [data, preheader, dataset] = FACETautoImport(dataset);
     
     % intersect UIDs
-    N = numel(cameras);
-    structs = cell(N,1);
-    indices = cell(N,1);
-    for i = 1:N
-        struct = data.raw.images.(cameras{i});
-        structs(i) = {struct};
-        
-        % making sure there are actually files
-        fileMask = cellfun(@numel, struct.dat) > 0;
-        
-        if i==1
-            UIDs = struct.UID(fileMask);
-        end
-        UIDs = intersect(UIDs, struct.UID(fileMask));
-    end
-    
-    % intersect with user specified UIDs
-    if exist('specifiedUIDs', 'var') && numel(specifiedUIDs) > 0
-        UIDs = intersect(UIDs, specifiedUIDs);
-    end
-    
-    % get indices
-    for i = 1:N
-        [~, ind] = intersect(structs{i}.UID, UIDs);
-        indices(i) = { ind };
-    end
+    if ~exist('specifiedUIDs', 'var') 
+        specifiedUIDs = []; end;
+    [ structs, UIDs, indices, Ncams ] = intersectUIDs(data, specifiedUIDs, cameras);
 
     % find backgrounds if saved
     background = backgroundSubtraction(data.raw.metadata.param.save_back, structs, preheader, cameras);
 
     % set bit depths and ROIs
-    xROIs = cell(N,1);
-    yROIs = cell(N,1);
-    bitDepths = cell(N,1);
-    for i =1:N
+    xROIs = cell(Ncams, 1);
+    yROIs = cell(Ncams, 1);
+    bitDepths = cell(Ncams, 1);
+    for i =1:Ncams
         bitDepths(i) = { 0 };
         xROIs(i) = { 1:structs{i}.ROI_XNP };
         yROIs(i) = { 1:structs{i}.ROI_YNP };
@@ -58,7 +34,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
             if strcmpi(class(bdroi),'double')
                 bitDepths(i) = { bdroi };
             elseif iscell(bdroi) && numel(bdroi)
-                bitDepths(i) = { bdroi{1} };
+                bitDepths(i) = bdroi(1);
                 if numel(bdroi) >= 2 && numel(bdroi{2})
                     yROIs(i) = { intersect(bdroi{2}, yROIs{i}) };
                 end
@@ -91,7 +67,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
         clf;
 
         % cycle through cameras
-        for i = 1:N
+        for i = 1:Ncams
             
             % unique identifier
             UID = structs{i}.UID(indices{i}(shot));
@@ -100,7 +76,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
             image = getProcessedImage(preheader, structs{i}, indices{i}, shot, background{i}, cameras{i});
             
             % plot image (tries to make square layout)
-            subplot(ceil(N/floor(sqrt(N))),floor(sqrt(N)),i);
+            subplot(ceil(Ncams/floor(sqrt(Ncams))),floor(sqrt(Ncams)),i);
             imagesc(xROIs{i}, yROIs{i}, image(yROIs{i}, xROIs{i}));
             colorbar;
             caxis([0 bitDepths{i}]);

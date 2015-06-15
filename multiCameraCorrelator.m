@@ -15,18 +15,8 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
     
     % white plot background
     set(gcf, 'Color', 'w');
-    
-    % scalar dictionary
-    dictionary = {{'GADC0_LI20_EX01_CALC_CH3_', 'DS TOROID'} ...
-                  {'GADC0_LI20_EX01_CALC_CH2_', 'US TOROID'} ...
-                  {'BLEN_LI20_3014_BRAW', 'PYRO'} ...
-                  {'PMTR_LA20_10_PWR','LASER POWER'}};
-    
-    % fail if wrong number of functions 
-    assert(numel(cameras) == numel(imageFunctions));
 
     % import data structure
-    fprintf('Importing data... ');
     [data, preheader, dataset] = FACETautoImport(dataset);
 
     % default no scalars
@@ -34,23 +24,8 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
 	    scalars = cell(0); 
     end;
 
-    % default no combineFunctions
-    Ncfun = 0;
-    if exist('combineFunctions','var')
-        Ncfun = numel(combineFunctions); 
-    end;
-    
-    % numbers and declarations
-    Ncam = numel(cameras);
-    Nscal = numel(scalars);
-    N = Ncam + Nscal;
-    Nall = N + Ncfun;
-    structs = cell(N,1);
-    indices = cell(N,1);
-    labels = cell(N,1);
-    
     % parse scalar names and cutoffs
-    cutoffs = cell(Nscal,1);
+    cutoffs = cell(numel(scalars), 1);
     for i = 1:numel(scalars)
         if iscell(scalars{i})
             name = scalars{i}{1};
@@ -58,45 +33,20 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             scalars(i) = { name };
         end
     end
-
+    
     % intersect UIDs
-    for i = 1:N
-        if i <= Ncam
-	        struct = data.raw.images.(cameras{i});
-            fstr = strtrim(func2str(imageFunctions{i}));
-            fstr = strrep(fstr, 'sum(sum','Pixel count');
-            fstr = strtrim(strrep(fstr,'@(x)',''));
-            fstr = strtok(fstr,'(');
-            label = [fstr ' @ ' cameras{i}];
-        else
-            scalar = scalars{i-Ncam};
-            label = scalar;
-            % translate to and from simpler words
-            for lookup = dictionary
-                scalar = strrep(scalar, lookup{1}{2}, lookup{1}{1});
-                label = strrep(label, lookup{1}{1}, lookup{1}{2});
-            end
-            struct = data.raw.scalars.(scalar);
-        end
-	    structs(i) = { struct };
-        labels(i) = { label };
-        
-        if i==1 
-            UIDs = struct.UID; 
-        end;
-        UIDs = intersect(UIDs, struct.UID);
-    end
+    if ~exist('specifiedUIDs', 'var') 
+        specifiedUIDs = []; end;
+    [structs, UIDs, indices, Ncams, labels, N, Nscal] = intersectUIDs(data, specifiedUIDs, cameras, imageFunctions, scalars);
     
-    % intersect with user specified UIDs
-    if exist('specifiedUIDs', 'var') && numel(specifiedUIDs) > 0
-        UIDs = intersect(UIDs, specifiedUIDs); end;
-    
-    % get indices
-    for i = 1:N
-        [~, ind] = intersect(structs{i}.UID, UIDs);
-        indices(i) = {ind};
-    end
-
+    % default no combineFunctions
+    if exist('combineFunctions','var')
+        Ncfun = numel(combineFunctions);
+    else
+        Ncfun = 0;
+    end;
+    Nall = N + Ncfun;
+  
     % if 1 shot entered, start with this. if none, show all.
     nUIDs = numel(UIDs);
     if exist('shots', 'var') && numel(shots)>0
@@ -111,7 +61,7 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
     % do shot cutoff filtering
     for i = 1:Nscal
         if numel(cutoffs{i})
-            values = structs{Ncam+i}.dat(indices{Ncam+i}(shots));
+            values = structs{Ncams+i}.dat(indices{Ncams+i}(shots));
             shots = shots(and(values < max(cutoffs{i}), values > min(cutoffs{i})));
         end
     end
@@ -124,11 +74,11 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
     clf;
     
     % cycle through all cameras
-    fprintf(['Analyzing ' num2str(Ncam*nshots) ' images... ']);
+    fprintf(['Analyzing ' num2str(Ncams*nshots) ' images... ']);
     funcValues = cell(Nall, 1);
     zeroMask = cell(Nall, 1);
     progress = 0;
-    for i = 1:Ncam
+    for i = 1:Ncams
         
         % temporary function values
         values = zeros(nshots,1);
@@ -138,7 +88,7 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             shot = shots(j);
             
             % show progress (because people are impatient)
-            current = floor((nshots*(i-1) + j)/(nshots*Ncam)*100);
+            current = floor((nshots*(i-1) + j)/(nshots*Ncams)*100);
             if current >= progress + 10
                progress = floor(current/10)*10;
                fprintf([num2str(progress) '%% ']);
@@ -160,9 +110,9 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
     disp('... Done. ');
 
     % cycle through all scalars
-    for i = (Ncam+1):N
+    for i = (Ncams+1):N
     	funcValues(i) = { structs{i}.dat(indices{i}(shots))' };
-        zeroMask(i) = { or( strcmpi(scalars{i-Ncam},'step_value'),  abs(funcValues{i}) > 1e-9 ) };
+        zeroMask(i) = { or( strcmpi(scalars{i-Ncams},'step_value'),  abs(funcValues{i}) > 1e-9 ) };
     end
 
     % cycle through all combination functions
@@ -225,15 +175,16 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
 	        % plot and choose color based on R^2
             scatter(funcValues{j}(mask), funcValues{i}(mask), 30, corrcolor, 'filled');
 
+            % add dataset title once
+            if count == 1
+                set(gca,'FontSize', 13);
+                title(['\bf Dataset ' dataset]);
+            end
+            
             % add labels
             set(gca,'FontSize', 12);
             xlabel(labels{j}, 'Interpreter', 'None');
             ylabel(labels{i}, 'Interpreter', 'None');
-            
-            % add dataset title once
-            if count == 1
-                title(['\bfDataset ' dataset]);
-            end
             
             % increment to next plot
             count = count + 1;
