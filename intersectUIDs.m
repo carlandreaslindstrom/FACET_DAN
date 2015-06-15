@@ -53,15 +53,20 @@ function [ structs, UIDs, indices, Ncams, labels, N, Nscal, Ncuts, isCutCam ] = 
         % cameras
         if i <= Ncams 
 	        struct = data.raw.images.(cameras{i});
-            if Nscal
+            if Nscal % correlator
                 fstr = strtrim(func2str(imageFunctions{i}));
                 fstr = strrep(fstr, 'sum(sum','Pixel count');
                 fstr = strtrim(strrep(fstr,'@(x)',''));
                 fstr = strtok(fstr,'(');
-                label = [fstr ' @ ' cameras{i}];
-            elseif numel(imageFunctions)
+                % add number if duplicate cameras
+                if sum(ismember(cameras, cameras{i})) > 1
+                    label = [fstr ' @ ' cameras{i} ' #' num2str(i)];
+                else
+                    label = [fstr ' @ ' cameras{i}];
+                end
+            elseif numel(imageFunctions) % waterfall
                 label = [cameras{i} ' ' strtrim(func2str(imageFunctions{i}))];
-            else
+            else % visualizer
                 label = '';
             end
             
