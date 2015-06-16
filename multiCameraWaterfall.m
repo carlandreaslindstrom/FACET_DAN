@@ -193,7 +193,7 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
         isWLAN = strcmp(cameras{i},'CMOS_WLAN') || strcmp(cameras{i},'WLanex');
         isELAN = strcmp(cameras{i},'CMOS_ELAN');
         isCFAR = strcmp(cameras{i},'CMOS_FAR');
-        if isELAN || isWLAN || isCFAR
+        if (isELAN && isfield(data.raw.metadata.E200_state, 'XPS_LI20_MC01_M5_RBV') ) || isWLAN || isCFAR
             fstr = strtrim(func2str(f));
             fparts = regexp(fstr,'[(,)]','split');
             isProjection = strcmp(fparts(1),'@') && strcmp(fparts(2), fparts(4)) && strcmp(fparts(3),'sum');
@@ -221,9 +221,9 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
                     yNominal = 755;
                     zScreen = 2015.6;
                 elseif isELAN
-                    mtrPosY = data.raw.metadata.E200_state.XPS_LI20_MC01_M5_RBV.dat; % Elanex y-motor
-                    yNominal = 210 - (mtrPosY-53.51)*1e-3/resolution;
-                    zScreen = 2015.22;
+                      mtrPosY = data.raw.metadata.E200_state.XPS_LI20_MC01_M5_RBV.dat; % Elanex y-motor
+                      yNominal = 210 - (mtrPosY-53.51)*1e-3/resolution;
+                      zScreen = 2015.22;
                 elseif isCFAR
                     yNominal = 973;
                     zScreen = 2016.04;
