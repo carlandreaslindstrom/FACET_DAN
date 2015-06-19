@@ -57,7 +57,12 @@ function [ data, preheader, dataset, filename ] = FACETautoImport( dataset, quie
         % display dataset information
         if displayIt && ~strcmp(filename, '')
             disp([data.raw.metadata.param.save_name(1:5) dataset ', ' data.raw.metadata.param.save_name(12:21) ', comment : "' data.raw.metadata.param.comt_str '"']);
-            disp(['Logged pressure [torr] : ' num2str(data.raw.metadata.E200_state.VGCM_LI20_M3202_PMONRAW.dat) ', Logged mean laser power [mJ] : ' num2str(mean(data.raw.scalars.PMTR_LA20_10_PWR.dat))   ]);
+            if( isfield(data.raw.metadata.E200_state, 'XPS_LA20_LS24_M1_RBV') ) 
+              laser_waveplate_status = num2str(mean(data.raw.metadata.E200_state.XPS_LA20_LS24_M1_RBV.dat));
+            else
+              laser_waveplate_status = 'n/a';
+            end% if
+            disp(['Logged pressure [torr] : ' num2str(data.raw.metadata.E200_state.VGCM_LI20_M3202_PMONRAW.dat) ', Logged mean laser power [mJ] : ' num2str(mean(data.raw.scalars.PMTR_LA20_10_PWR.dat)) ', Logged laser waveplate [deg] : ' laser_waveplate_status   ]);
             DS_toroid = data.raw.scalars.GADC0_LI20_EX01_CALC_CH3_.dat;
             US_toroid = data.raw.scalars.GADC0_LI20_EX01_CALC_CH2_.dat;
             BPM3315_X = data.raw.scalars.BPMS_LI20_3315_X.dat;
