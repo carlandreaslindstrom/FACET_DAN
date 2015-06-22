@@ -190,10 +190,11 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
         caxis([0 bitDepths{i}]);
 
         % apply energy axis if appropriate (ELAN, WLAN)
-        isWLAN = strcmp(cameras{i},'CMOS_WLAN') || strcmp(cameras{i},'WLanex');
+        isWLAN = strcmp(cameras{i},'CMOS_WLAN');
+        isWLanex = strcmp(cameras{i},'WLanex');
         isELAN = strcmp(cameras{i},'CMOS_ELAN');
         isCFAR = strcmp(cameras{i},'CMOS_FAR');
-        if isELAN || isWLAN || isCFAR
+        if isELAN || isWLAN || isCFAR || isWLanex
             fstr = strtrim(func2str(f));
             fparts = regexp(fstr,'[(,)]','split');
             isProjection = strcmp(fparts(1),'@') && strcmp(fparts(2), fparts(4)) && strcmp(fparts(3),'sum');
@@ -220,6 +221,9 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
                 if isWLAN
                     yNominal = 755;
                     zScreen = 2015.6;
+                elseif isWLanex
+                    yNominal = 582;
+                    zScreen = 2015.6;
                 elseif isELAN
                     mtrPosY = data.raw.metadata.E200_state.XPS_LI20_MC01_M5_RBV.dat; % Elanex y-motor
                     yNominal = 210 - (mtrPosY-53.51)*1e-3/resolution;
@@ -239,7 +243,6 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
                 yBendShift = (D0 - DBend)/resolution;
                 
                 y0 = yNominal - yStart - yBendShift;
-                %yInf = y0 - DBend/resolution;
                 eAxis = p0 ./ (1-(y0-yROI)*resolution/DBend);
                 
                 numETicks = 10;

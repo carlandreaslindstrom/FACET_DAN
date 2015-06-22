@@ -4,7 +4,7 @@ function [ image ] = getProcessedImage(preheader, struct, indices, shot, backgro
     image = imread([preheader struct.dat{indices(shot)}]);
 
     % rotate if CMOS_FAR
-    if strcmp(camera,'CMOS_FAR')
+    if strcmp(camera,'CMOS_FAR') || strcmpi(camera,'WLanex')
         image = image';
     end
 

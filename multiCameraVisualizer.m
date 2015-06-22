@@ -82,9 +82,65 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
             caxis([0 bitDepths{i}]);
             title([ cameras{i} ' (' num2str(shot) '/' num2str(nShots) ', ' num2str(UID) ', dataset ' dataset ')'],'Interpreter','none');
             
+            % apply energy axis if appropriate (ELAN, WLAN)
+            isWLAN = strcmp(cameras{i},'CMOS_WLAN');
+            isWLanex = strcmp(cameras{i},'WLanex');
+            isELAN = strcmp(cameras{i},'CMOS_ELAN');
+            isCFAR = strcmp(cameras{i},'CMOS_FAR');
+            if isELAN || isWLAN || isCFAR || isWLanex
+                
+                % ROI
+                yROI = yROIs{i};
+
+                % camera specific properties
+                resolution = structs{i}.RESOLUTION(1)*1e-6;
+                yStart = structs{i}.ROI_Y(1);
+                if isWLAN
+                    yNominal = 755;
+                    zScreen = 2015.6;
+                elseif isWLanex
+                    yNominal = 582;
+                    zScreen = 2015.6;
+                elseif isELAN
+                    mtrPosY = data.raw.metadata.E200_state.XPS_LI20_MC01_M5_RBV.dat; % Elanex y-motor
+                    yNominal = 210 - (mtrPosY-53.51)*1e-3/resolution;
+                    zScreen = 2015.22;
+                elseif isCFAR
+                    yNominal = 973;
+                    zScreen = 2016.04;
+                end
+
+                z_B5D36 = 2005.65085; % middle of magnet
+                L = zScreen - z_B5D36;
+                p0 = 20.35;
+                pBend = data.raw.metadata.E200_state.LI20_LGPS_3330_BDES.dat;
+                theta0 = 5.73e-3;
+                D0 = theta0 * L;
+                DBend = D0 * (pBend/p0);
+                yBendShift = (D0 - DBend)/resolution;
+
+                y0 = yNominal - yStart - yBendShift;
+                eAxis = p0 ./ (1-(y0-yROI)*resolution/DBend);
+
+                numETicks = 10;
+                lineSize = numel(yROI);
+                eindices = 1:floor(lineSize/numETicks):lineSize;
+                eticks = (min(yROI)-1) + eindices;
+                etickVals = num2str(eAxis(eindices)','%.1f');
+                etickVals(eAxis(eindices)<0,:) = ' ';
+
+                % only use if not other bend on Elanex (screws up)
+                if ~(isELAN && abs(pBend-p0) > 0.1 )
+                    set(gca, 'YTick', eticks);
+                    set(gca, 'YTickLabel', etickVals);
+                    ylabel('Projection / GeV');
+                end
+                
+            end
+            
             % show custom function
             if strcmp(cameras{i},'E224_Vert')
-                 %[amplitude, width, brightness] = oscAmp(processedImage, 250:650,200:1100)
+                %[amplitude, width, brightness] = oscAmp(processedImage, 250:650,200:1100)
             end
         end
         
@@ -95,5 +151,4 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
         end
             
     end
-    
 end
