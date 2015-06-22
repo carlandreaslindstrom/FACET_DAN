@@ -85,7 +85,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
             % apply energy axis if appropriate (ELAN, WLAN)
             isWLAN = strcmp(cameras{i},'CMOS_WLAN');
             isWLanex = strcmp(cameras{i},'WLanex');
-            isELAN = strcmp(cameras{i},'CMOS_ELAN');
+            isELAN = strcmp(cameras{i},'CMOS_ELAN') && ( isfield(data.raw.metadata.E200_state, 'XPS_LI20_MC01_M5_RBV') || ( false && isfield(data.raw.metadata.E200_state, 'XPS_LI20_DWFA_M5') ) );
             isCFAR = strcmp(cameras{i},'CMOS_FAR');
             if isELAN || isWLAN || isCFAR || isWLanex
                 
@@ -102,7 +102,11 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
                     yNominal = 582;
                     zScreen = 2015.6;
                 elseif isELAN
-                    mtrPosY = data.raw.metadata.E200_state.XPS_LI20_MC01_M5_RBV.dat; % Elanex y-motor
+                    if isfield(data.raw.metadata.E200_state, 'XPS_LI20_MC01_M5_RBV')
+                        mtrPosY = data.raw.metadata.E200_state.XPS_LI20_MC01_M5_RBV.dat; % Elanex y-motor
+                    else % turns out energy axis 
+                        mtrPosY = data.raw.metadata.E200_state.XPS_LI20_DWFA_M5.dat; % Elanex y-motor
+                    end% if
                     yNominal = 210 - (mtrPosY-53.51)*1e-3/resolution;
                     zScreen = 2015.22;
                 elseif isCFAR

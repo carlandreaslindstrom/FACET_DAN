@@ -171,7 +171,7 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
         imagesc(1:nshots, 1:lineSize, lines);
         if isScan
             set(gca, 'XTick', xticks);
-            set(gca, 'XTickLabel', num2str(uniqueStepValues','%.2f'));
+            set(gca, 'XTickLabel', num2str(uniqueStepValues','%.1f'));
             if( isfield(data.raw.metadata.param, 'fcnHandle') )
                 step_str = [', "' func2str(data.raw.metadata.param.fcnHandle) '"'];
             else
@@ -192,7 +192,7 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
         % apply energy axis if appropriate (ELAN, WLAN)
         isWLAN = strcmp(cameras{i},'CMOS_WLAN');
         isWLanex = strcmp(cameras{i},'WLanex');
-        isELAN = strcmp(cameras{i},'CMOS_ELAN');
+        isELAN = strcmp(cameras{i},'CMOS_ELAN') && ( isfield(data.raw.metadata.E200_state, 'XPS_LI20_MC01_M5_RBV') || ( false && isfield(data.raw.metadata.E200_state, 'XPS_LI20_DWFA_M5') ) );
         isCFAR = strcmp(cameras{i},'CMOS_FAR');
         if isELAN || isWLAN || isCFAR || isWLanex
             fstr = strtrim(func2str(f));
@@ -225,9 +225,13 @@ function [ ] = multiCameraWaterfall( dataset, cameras, imageFunctions, bitDepths
                     yNominal = 582;
                     zScreen = 2015.6;
                 elseif isELAN
-                    mtrPosY = data.raw.metadata.E200_state.XPS_LI20_MC01_M5_RBV.dat; % Elanex y-motor
-                    yNominal = 210 - (mtrPosY-53.51)*1e-3/resolution;
-                    zScreen = 2015.22;
+                  if isfield(data.raw.metadata.E200_state, 'XPS_LI20_MC01_M5_RBV')
+                      mtrPosY = data.raw.metadata.E200_state.XPS_LI20_MC01_M5_RBV.dat; % Elanex y-motor
+                  else % turns out energy axis 
+                      mtrPosY = data.raw.metadata.E200_state.XPS_LI20_DWFA_M5.dat; % Elanex y-motor
+                  end% if
+                      yNominal = 210 - (mtrPosY-53.51)*1e-3/resolution;
+                      zScreen = 2015.22;
                 elseif isCFAR
                     yNominal = 973;
                     zScreen = 2016.04;
