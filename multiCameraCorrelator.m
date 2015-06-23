@@ -1,4 +1,4 @@
-function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars, combineFunctions, shots, specifiedUIDs )
+function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars, combineFunctions, shots, doAvg, specifiedUIDs )
 
     % Argument guide:
     % "dataset" is the 5-digit dataset number as a string (e.g. '16875')
@@ -138,6 +138,11 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
         zeroMask(j) = { abs(funcValues{j}) > 1e-9 };	
     end
 
+    % default do averages during scans
+    if ~exist('doAvg', 'var') 
+        doAvg = true; 
+    end;
+    
     % plot all correlations
     nPlots = Nall*(Nall-1)/2 - 2*Ncfun;
     count = 1;
@@ -172,9 +177,38 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             c = winter(100);
             corrcolor = c(ceil(abs(R*99)+1),:);
             
-	        % plot and choose color based on R^2
-            scatter(funcValues{j}(mask), funcValues{i}(mask), 30, corrcolor, 'filled');
-
+             % swap to have step_value as indep variable
+            if strcmpi(labels{i},'step_value')
+                xs = funcValues{i}(mask);
+                ys = funcValues{j}(mask);
+                labelx = labels{i};
+                labely = labels{j};
+            else
+                xs = funcValues{j}(mask);
+                ys = funcValues{i}(mask);
+                labelx = labels{j};
+                labely = labels{i};
+            end
+            
+            if doAvg && ( strcmpi(labels{j},'step_value') || strcmpi(labels{i},'step_value') )
+                indepvals = xs;
+                depvals = ys;
+                uniqindepvals = unique(indepvals);
+                means = zeros(numel(uniqindepvals), 1);
+                stds = means;
+                for k = 1:numel(uniqindepvals)
+                    indepval = uniqindepvals(k);
+                    matchedvals = depvals(indepvals == indepval);
+                    means(k) = mean(matchedvals);
+                    stds(k) = std(matchedvals);
+                end
+                % plot with error bars and choose color based on R^2
+                errorbar(uniqindepvals, means, stds, '+', 'Color', corrcolor);
+            else
+                % plot and choose color based on R^2
+                scatter(xs, ys, 30, corrcolor, 'filled');
+            end
+            
             % add dataset title once
             if count == 1
                 title(['Dataset ' dataset],'fontweight','bold','fontsize',18);
@@ -182,8 +216,8 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
             
             % add labels
             set(gca,'FontSize', 12);
-            xlabel(labels{j}, 'Interpreter', 'None');
-            ylabel(labels{i}, 'Interpreter', 'None');
+            xlabel(labelx, 'Interpreter', 'None');
+            ylabel(labely, 'Interpreter', 'None');
             
             % increment to next plot
             count = count + 1;
