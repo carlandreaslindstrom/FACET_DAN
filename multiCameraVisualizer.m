@@ -20,7 +20,7 @@ function [ ] = multiCameraVisualizer( dataset, cameras, bitDepthAndROI, shots, s
 
     % find backgrounds if saved
     background = backgroundSubtraction(data.raw.metadata.param.save_back, structs, preheader, cameras);
-
+    
     % set bit depths and ROIs
     xROIs = cell(Ncams, 1);
     yROIs = cell(Ncams, 1);

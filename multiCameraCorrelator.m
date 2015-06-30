@@ -1,4 +1,4 @@
-function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars, combineFunctions, shots, doAvg, specifiedUIDs )
+function [] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars, combineFunctions, shots, doAvg, specifiedUIDs )
 
     % Argument guide:
     % "dataset" is the 5-digit dataset number as a string (e.g. '16875')
@@ -12,6 +12,7 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
     
     % import image to number functions
     addpath('2DtoNUM');
+    addpath('NUMtoNUM');
     
     % white plot background
     set(gcf, 'Color', 'w');
@@ -114,6 +115,8 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
     	funcValues(i) = { structs{i}.dat(indices{i}(shots))' };
         zeroMask(i) = { or( strcmpi(scalars{i-Ncams},'step_value'),  abs(funcValues{i}) > 1e-9 ) };
     end
+    
+    
 
     % cycle through all combination functions
     for i = 1:Ncfun
@@ -133,7 +136,7 @@ function [ ] = multiCameraCorrelator( dataset, cameras, imageFunctions, scalars,
         if strcmpi(func2str(func),'minus') && strcmp(labels(arg1), 'DS TOROID') && strcmp(labels(arg2), 'US TOROID')
             labels(j) = { 'TRAPPED CHARGE' };
         end
-
+        
         funcValues(j) = { values };
         zeroMask(j) = { abs(funcValues{j}) > 1e-9 };	
     end

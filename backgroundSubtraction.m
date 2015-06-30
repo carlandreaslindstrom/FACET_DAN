@@ -4,9 +4,13 @@ function [ background ] = backgroundSubtraction( hasBackground, structs, prehead
     background = cell(N,1);
     if hasBackground 
         for i = 1:N
-            % load background image
-            bg = load([preheader structs{i}.background_dat{1}]);
-            
+            % load background image if it exists
+            if numel(structs{i}.background_dat)
+                bg = load([preheader structs{i}.background_dat{1}]);
+            else
+                continue;
+            end
+
             % flip images and decide whether to subtract
             subtract = false;
             if strcmpi(cameras{i}, 'IP2A') || strcmp(cameras{i},'CMOS_FAR')
